@@ -1,6 +1,6 @@
 ﻿namespace DisorderedOrdersMVC.Services
 {
-    public class PayPalProcessor : IPaymentProcessor
+    public class PayPalProcessor : IPaymentProcessor, IRefundProcessor
     {
         public bool ProcessPayment(int amount)
         {
