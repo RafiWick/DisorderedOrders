@@ -34,14 +34,11 @@ namespace DisorderedOrdersMVC.Controllers
             // verify stock available
             order.VerifyStock();
 
-            // calculate total price
-            var total = order.Total();
-
             // process payment
             IPaymentProcessor processor = CreateProcessor(paymentType);
             
 
-            processor.ProcessPayment(total);
+            processor.ProcessPayment(order.Total());
 
             _context.Orders.Add(order);
             _context.SaveChanges();
@@ -57,17 +54,9 @@ namespace DisorderedOrdersMVC.Controllers
             
             var order = new Order() { Customer = customer };
 
-            // move to order
-            for (var i = 1; i < collection.Count - 1; i++)
-            {
-                var kvp = collection.ToList()[i];
-                if (kvp.Value != "0")
-                {
-                    var product = _context.Products.Where(p => p.Name == kvp.Key).First();
-                    var orderItem = new OrderItem() { Item = product, Quantity = Convert.ToInt32(kvp.Value) };
-                    order.Items.Add(orderItem);
-                }
-            }
+            
+            order.PopulateOrderItems(collection, _context);
+            
             return order;
         }
         public IPaymentProcessor CreateProcessor(string paymentType)
@@ -97,13 +86,7 @@ namespace DisorderedOrdersMVC.Controllers
                     .ThenInclude(i => i.Item)
                 .Where(o => o.Id == id).First();
 
-            var total = 0;
-            foreach (var orderItem in order.Items)
-            {
-                var itemPrice = orderItem.Item.Price * orderItem.Quantity;
-                total += itemPrice;
-            }
-            ViewData["total"] = total;
+            ViewData["total"] = order.Total();
 
             return View(order);
         }
