@@ -1,4 +1,7 @@
-﻿namespace DisorderedOrdersMVC.Models
+﻿using DisorderedOrdersMVC.DataAccess;
+using Microsoft.EntityFrameworkCore;
+
+namespace DisorderedOrdersMVC.Models
 {
     public class Order
     {
@@ -28,6 +31,19 @@
                 total += itemPrice;
             }
             return total;
+        }
+        public void PopulateOrderItems(IFormCollection collection, DisorderedOrdersContext context)
+        {
+            for (var i = 1; i < collection.Count - 1; i++)
+            {
+                var kvp = collection.ToList()[i];
+                if (kvp.Value != "0")
+                {
+                    var product = context.Products.Where(p => p.Name == kvp.Key).First();
+                    var orderItem = new OrderItem() { Item = product, Quantity = Convert.ToInt32(kvp.Value) };
+                    Items.Add(orderItem);
+                }
+            }
         }
     }
 }
