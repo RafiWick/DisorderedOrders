@@ -3,6 +3,7 @@ using DisorderedOrdersMVC.Models;
 using DisorderedOrdersMVC.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 
 namespace DisorderedOrdersMVC.Controllers
 {
@@ -28,9 +29,35 @@ namespace DisorderedOrdersMVC.Controllers
         public IActionResult Create(IFormCollection collection, string paymentType)
         {
             // create order
+            var order = CreateOrder(collection);
+
+            // verify stock available
+            order.VerifyStock();
+
+            // calculate total price
+            var total = order.Total();
+
+            // process payment
+            IPaymentProcessor processor = CreateProcessor(paymentType);
+            
+
+            processor.ProcessPayment(total);
+
+            _context.Orders.Add(order);
+            _context.SaveChanges();
+
+            return RedirectToAction("Show", new { id = order.Id});
+        }
+
+        public Order CreateOrder(IFormCollection collection)
+        {
+            // create order
             int customerId = Convert.ToInt16(collection["CustomerId"]);
             Customer customer = _context.Customers.Find(customerId);
+            
             var order = new Order() { Customer = customer };
+
+            // move to order
             for (var i = 1; i < collection.Count - 1; i++)
             {
                 var kvp = collection.ToList()[i];
@@ -41,27 +68,10 @@ namespace DisorderedOrdersMVC.Controllers
                     order.Items.Add(orderItem);
                 }
             }
-
-            // verify stock available
-            foreach (var orderItem in order.Items)
-            {
-                if (!orderItem.Item.InStock(orderItem.Quantity))
-                {
-                    orderItem.Quantity = orderItem.Item.StockQuantity;
-                }
-
-                orderItem.Item.DecreaseStock(orderItem.Quantity);
-            }
-
-            // calculate total price
-            var total = 0;
-            foreach (var orderItem in order.Items)
-            {
-                var itemPrice = orderItem.Item.Price * orderItem.Quantity;
-                total += itemPrice;
-            }
-
-            // process payment
+            return order;
+        }
+        public IPaymentProcessor CreateProcessor(string paymentType)
+        {
             IPaymentProcessor processor;
             if (paymentType == "bitcoin")
             {
@@ -75,13 +85,7 @@ namespace DisorderedOrdersMVC.Controllers
             {
                 processor = new CreditCardProcessor();
             }
-
-            processor.ProcessPayment(total);
-
-            _context.Orders.Add(order);
-            _context.SaveChanges();
-
-            return RedirectToAction("Show", new { id = order.Id});
+            return processor;
         }
 
         [Route("/orders/{id:int}")]
